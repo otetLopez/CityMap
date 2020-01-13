@@ -99,6 +99,10 @@ class ViewController: UIViewController {
                 print("Removing annotation")
                 // remove existing annotation
                 self.mapView.removeAnnotation(annotation)
+                if mapView.annotations.count < 3 {
+                    // Clear overlays
+                    mapView.removeOverlays(mapView.overlays)
+                }
                 return true
             }
         }
