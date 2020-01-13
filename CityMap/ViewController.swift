@@ -64,8 +64,27 @@ class ViewController: UIViewController {
                     
                     if mapView.annotations.count == 3 {
                         mapView.delegate = self
-                        addPolyLine()
+                        //addPolyLine()
                         addPolygon()
+                        
+                        let d1 = getDistance(from: mapView.annotations[0].coordinate, to: mapView.annotations[1].coordinate)
+                        let d2 = getDistance(from: mapView.annotations[1].coordinate, to: mapView.annotations[2].coordinate)
+                        let d3 = getDistance(from: mapView.annotations[2].coordinate, to: mapView.annotations[0].coordinate)
+                        
+                        
+                        print("Distance 1 : \(d1)")
+                        print("Distance 2 : \(d2)")
+                        print("Distance 3 : \(d3)")
+                        
+                        print("\(mapView.overlays.count)")
+                        
+                        // Set 1st route
+                        setRoute(source: mapView.annotations[0].coordinate, destination: mapView.annotations[1].coordinate)
+                        // Set 2nd route
+                        setRoute(source: mapView.annotations[1].coordinate, destination: mapView.annotations[2].coordinate)
+                        // Set 3rd route
+                        setRoute(source: mapView.annotations[2].coordinate, destination: mapView.annotations[0].coordinate)
+                        
                     }
                 }
             }
@@ -108,6 +127,45 @@ class ViewController: UIViewController {
         }
        return false
     }
+    
+    func getDistance(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> CLLocationDistance {
+        let from = CLLocation(latitude: from.latitude, longitude: from.longitude)
+        let to = CLLocation(latitude: to.latitude, longitude: to.longitude)
+        return from.distance(from: to)
+    }
+    
+    func setRoute(source: CLLocationCoordinate2D, destination: CLLocationCoordinate2D) {
+        // 1st route
+        let sourcePlacemark = MKPlacemark(coordinate: source, addressDictionary: nil)
+        let destinationPlacemark = MKPlacemark(coordinate: destination, addressDictionary: nil)
+                             
+        let sourceMapItem = MKMapItem(placemark: sourcePlacemark)
+        let destinationMapItem = MKMapItem(placemark: destinationPlacemark)
+                             
+        let directionRequest = MKDirections.Request()
+        directionRequest.source = sourceMapItem
+        directionRequest.destination = destinationMapItem
+        directionRequest.transportType = .automobile
+                             
+        // Calculate the direction
+        let directions = MKDirections(request: directionRequest)
+        directions.calculate {
+            (response, error) -> Void in
+                                 
+            guard let response = response else {
+                if let error = error {
+                    print("Error: \(error)")
+                }
+                    return
+            }
+                                 
+            let route = response.routes[0]
+            self.mapView.addOverlay((route.polyline), level: MKOverlayLevel.aboveRoads)
+                                 
+            let rect = route.polyline.boundingMapRect
+            self.mapView.setRegion(MKCoordinateRegion(rect), animated: true)
+        }
+    }
 }
 
 extension ViewController: MKMapViewDelegate {
@@ -117,8 +175,8 @@ extension ViewController: MKMapViewDelegate {
         if overlay is MKPolyline {
             print("Called poly line")
             let renderer = MKPolylineRenderer(overlay: overlay)
-            renderer.strokeColor = UIColor.green
-            renderer.lineWidth = 2
+            renderer.strokeColor = UIColor.blue
+            renderer.lineWidth = 4
             return renderer
         } else if overlay is MKPolygon {
             print("called poygon")
