@@ -44,49 +44,86 @@ class ViewController: UIViewController {
     }
     
     @objc func longPress(gestureRecognizer : UIGestureRecognizer) {
-        let touchPoint = gestureRecognizer.location(in: mapView)
-        let coordinate = mapView.convert(touchPoint, toCoordinateFrom: mapView)
-       
-        // PIN Location: Add annotation
-        let annotation = MKPointAnnotation()
-        annotation.title = "Pinned Location"
-        annotation.coordinate = coordinate
-        
-        if checkCoordinate(coordinate: coordinate) {
-            mapView.addAnnotation(annotation)
-            addLocation(coordinate: coordinate)
-        } else {
-            mapView.removeAnnotation(annotation)
-        }
-    }
-    
-    func checkCoordinate(coordinate : CLLocationCoordinate2D) -> Bool {
-        var i : Int = 0
-        for idx in coordinates {
-            // check latitude not within range
-            //print("latitude: \(idx[0])")
-            //print("longitude: \(idx[1])")
-            let newCoordinate : Array<Double> = [ Double(round(10000*coordinate.latitude)/10000), Double(round(10000*coordinate.longitude)/10000)]
-            if ((idx[0] - 0.001) <= coordinate.latitude && coordinate.latitude <= (idx[0] + 0.001)) && ((idx[1] - 0.001) <= coordinate.longitude && coordinate.longitude <= (idx[1] + 0.001)) {
-                print("Similar coordinates \(newCoordinate)")
-                coordinates.remove(at: i)
-                return false
+        guard let longPress = gestureRecognizer as? UILongPressGestureRecognizer else
+          { return }
+
+          if longPress.state == .ended { // When gesture end
+            let touchPoint = gestureRecognizer.location(in: mapView)
+            let coordinate = mapView.convert(touchPoint, toCoordinateFrom: mapView)
+            // PIN Location: Add annotation
+            let annotation = MKPointAnnotation()
+            annotation.title = "Pinned Location"
+            annotation.coordinate = coordinate
+            
+            let newCoordinate : Array<Double> = [ Double(round(1000*coordinate.latitude)/1000), Double(round(1000*coordinate.longitude)/1000)]
+            print("Pressed \(newCoordinate)")
+            
+            if !coordinateExists(coordinate: coordinate) {
+                if mapView.annotations.count < 3 {
+                    mapView.addAnnotation(annotation)
+                    
+                    if mapView.annotations.count == 3 {
+                        mapView.delegate = self
+                        addPolyLine()
+                        addPolygon()
+                    }
+                }
             }
-            i += 1
-        }
-       return true
+          }
     }
     
-    func addLocation(coordinate : CLLocationCoordinate2D) {
-        let newCoordinate : Array<Double> = [ Double(round(1000*coordinate.latitude)/1000), Double(round(1000*coordinate.longitude)/1000)]
-        coordinates.append(newCoordinate)
-        print("--------------------")
-        for idx in coordinates {
-            print("\(idx)")
+    // This function will create lines between location
+    func addPolyLine() {
+        let locations = mapView.annotations.map {$0.coordinate}
+        let polyLine = MKPolyline(coordinates: locations, count: locations.count)
+        print("1 Locations count \(locations.count)")
+        for idx in locations {
+            print ("\(idx.latitude) \(idx.longitude)")
         }
-        print("--------------------")
+        mapView.addOverlay(polyLine)
     }
-
-
+    
+    func addPolygon() {
+        let locations = mapView.annotations.map {$0.coordinate}
+        let polygon = MKPolygon(coordinates: locations, count: locations.count)
+        print("2 Locations count \(locations.count)")
+        for idx in locations {
+            print ("\(idx.latitude) \(idx.longitude)")
+        }
+        mapView.addOverlay(polygon)
+    }
+    
+    func coordinateExists(coordinate : CLLocationCoordinate2D) -> Bool {
+        for annotation in self.mapView.annotations {
+            if ((annotation.coordinate.latitude - 0.05)...(annotation.coordinate.latitude + 0.05)).contains(coordinate.latitude) && ((annotation.coordinate.longitude - 0.05)...(annotation.coordinate.longitude + 0.05)).contains(coordinate.longitude){
+                print("Removing annotation")
+                // remove existing annotation
+                self.mapView.removeAnnotation(annotation)
+                return true
+            }
+        }
+       return false
+    }
 }
 
+extension ViewController: MKMapViewDelegate {
+    
+    // This function is needed to add overlays
+    func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+        if overlay is MKPolyline {
+            print("Called poly line")
+            let renderer = MKPolylineRenderer(overlay: overlay)
+            renderer.strokeColor = UIColor.green
+            renderer.lineWidth = 2
+            return renderer
+        } else if overlay is MKPolygon {
+            print("called poygon")
+            let renderer = MKPolygonRenderer(overlay: overlay)
+            renderer.fillColor = UIColor.red.withAlphaComponent(0.5)
+            renderer.strokeColor = UIColor.green
+            renderer.lineWidth = 2
+            return renderer
+        }
+        return MKOverlayRenderer()
+    }
+}
